@@ -59,6 +59,9 @@ void reconnect() {
     }
   }
 }
+
+
+
 // Called when a metadata event occurs (i.e. an ID3 tag, an ICY block, etc.
 void MDCallback(void *cbData, const char *type, bool isUnicode, const char *string)
 {
@@ -99,8 +102,32 @@ void playFile(const char *URL){
   mp3->begin(buff, out);
 }
 
+//decodes activities from MQTT payload
+//possible commands: play:<filename>.mp3 , stop
+//Future thoughts: loop with number incl 0 for - ever
+char* processPayload(const char* payload){
+  char* filename;
+  Serial.println("decoding payload");
+  if (strstr(payload,"play") != NULL)
+  {
+    Serial.println("play found");
+    filename = strchr(payload,':');
+    filename++; //remove delimiter
+    Serial.println(filename);
+    char result[100];
+    strcpy(result,BASEURL);
+    strcat(result,filename);
+    Serial.println();
+    //char* URL2 = (char*)BASEURL + (char*)payload;
+    Serial.println(result);
+    playFile(result);
+  }
+  return filename;
+}
+
 //Called on MQTT incoming message
 void MQTTCallback(char* topic, byte* payload, unsigned int length) {
+  char* filename;
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
@@ -108,14 +135,8 @@ void MQTTCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char)payload[i]);
   }
   payload[length] = '\0';
-  char result[100];
-  strcpy(result,BASEURL);
-  strcat(result,(char*)payload);
-  //char* s = String((char*)payload);
-  Serial.println();
-  //char* URL2 = (char*)BASEURL + (char*)payload;
-  Serial.println(result);
-  playFile(result);
+  filename = processPayload((char*)payload);
+
 }
 
 
@@ -160,7 +181,7 @@ void loop()
      }
     if (!mp3->loop()) mp3->stop();
   } else {
-    Serial.printf("MP3 done\n");
+    // Serial.printf("MP3 done\n");
     delay(1000);
   }
    if (!client.connected()) {
